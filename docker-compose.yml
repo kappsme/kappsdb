@@ -10,6 +10,9 @@ services:
       - '3306:3306'
     volumes:
       - ../kappsdb:/db
+    networks:
+      network1:
+        ipv4_address: 172.25.1.1
   kappsdbsetup:
     image: mysql:5.7.40
     depends_on:
@@ -19,3 +22,7 @@ services:
       - ../kappsDB:/db
     working_dir: /db
     entrypoint: [ 'bash', '-c', 'sleep 10 && ${MYSQL_ROOT_CONNECTION} < ${MYSQL_DUMP_FILE} && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_KAPPDB_SCHEMA}" && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_APP_SCHEMA}"']
+networks:
+  network1:
+    name: kappsnet
+    external: true
