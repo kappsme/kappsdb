@@ -3,7 +3,7 @@ services:
   kappsdb:
     image: mysql:5.7.40
     env_file:
-      - .env 
+      - .env
     hostname: ${MYSQL_HOST}
     working_dir: /db
     ports:
@@ -21,7 +21,10 @@ services:
     volumes:
       - ../kappsDB:/db
     working_dir: /db
-    entrypoint: [ 'bash', '-c', 'sleep 10 && ${MYSQL_ROOT_CONNECTION} < ${MYSQL_DUMP_FILE} && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_KAPPDB_SCHEMA}" && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_APP_SCHEMA}"']
+    entrypoint:
+      - bash
+      - '-c'
+      - sleep 10 && ${MYSQL_ROOT_CONNECTION} < ${MYSQL_DUMP_FILE} && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_KAPPDB_SCHEMA}" && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_APP_SCHEMA}"
 networks:
   network1:
     name: kappsnet
