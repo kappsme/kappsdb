@@ -25,7 +25,7 @@ services:
     entrypoint:
       - bash
       - '-c'
-      - sleep 10 && ${MYSQL_ROOT_CONNECTION} < ${MYSQL_DUMP_FILE} && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_KAPPDB_SCHEMA}" && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_APP_SCHEMA}"
+      - sleep 5 && ${MYSQL_ROOT_CONNECTION} < ${MYSQL_DUMP_FILE} && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_KAPPDB_SCHEMA}" && ${MYSQL_ROOT_CONNECTION} -e "${GRANTS_APP_SCHEMA}"
 networks:
   network1:
     name: kappsnet
