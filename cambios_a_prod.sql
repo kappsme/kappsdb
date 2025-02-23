@@ -24,3 +24,7 @@ id_usuario int);
  descuento decimal,
  impuesto decimal
  );
+
+INSERT INTO `tx`.`ctz_base` (`id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('2', '3', 'NOMBRE', '1', '1', '1');
+INSERT INTO `tx`.`ctz_base` (`id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('2', '3', 'APELLIDO', '1', '1', '1');
+INSERT INTO `tx`.`ctz_base` (`id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('2', '3', 'TELEFONO', '2', '1', '1');
