@@ -8,22 +8,21 @@ INSERT INTO `kapps_db`.`tx_params_cat` (`id`, `module_id`, `nombre`, `estado`, `
 
 create table tx.tnd_ventas
 (id int primary key auto_increment,
+fecha datetime default now(),
 id_kapp int,
 id_cliente int,
-fecha datetime default now(),
-id_usuario int);
+id_usuario int,
+id_modulo int);
 
- create table tx.tnd_ventas_datos
- (id int primary key auto_increment,
- id_venta int,
- id_producto int,
- unidades int,
- precio_unitario decimal,
- id_lote int,
- monto_total decimal,
- descuento decimal,
- impuesto decimal
- );
+create table tx.tnd_ventas_detalle
+(id int primary key auto_increment,
+id_venta int,
+id_producto int,
+id_lote int,
+unidades int,
+precio_unitario decimal,
+impuesto_unitario decimal,
+descuento decimal)
 
 INSERT INTO `tx`.`ctz_base` (`id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('2', '3', 'NOMBRE', '1', '1', '1');
 INSERT INTO `tx`.`ctz_base` (`id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('2', '3', 'APELLIDO', '1', '1', '1');
@@ -42,6 +41,8 @@ INSERT INTO `tx`.`ctz_base` (`id`, `id_module_cat`, `id_module_screen`, `field_n
 INSERT INTO `tx`.`ctz_base` (`id`, `id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('11', '2', '5', 'CATEGORIA', '8', '1', '1');
 INSERT INTO `tx`.`ctz_base` (`id`, `id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('12', '2', '5', 'DESCRIPCION', '1', '1', '1');
 INSERT INTO `tx`.`ctz_base` (`id`, `id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('13', '2', '5', 'MONTO', '2', '1', '1');
+
+INSERT INTO `tx`.`ctz_base` (`id`, `id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('10', '3', '2', 'DISPONIBILIDAD', '2', '1', '1');
 
 
 SELECT id_elemento,
