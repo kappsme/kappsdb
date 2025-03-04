@@ -1,14 +1,4 @@
 
-ALTER TABLE `kapps_db`.`kapps_modules_cat` 
-ADD COLUMN `code` VARCHAR(45) NULL AFTER `parent_id`;
-
-UPDATE `kapps_db`.`kapps_modules_cat` SET `code` = 'tll' WHERE (`id` = '1');
-UPDATE `kapps_db`.`kapps_modules_cat` SET `code` = 'tnd' WHERE (`id` = '2');
-UPDATE `kapps_db`.`kapps_modules_cat` SET `code` = 'inv' WHERE (`id` = '3');
-UPDATE `kapps_db`.`kapps_modules_cat` SET `code` = 'cdx' WHERE (`id` = '4');
-UPDATE `kapps_db`.`kapps_modules_cat` SET `code` = 'dpt' WHERE (`id` = '5');
-
-
 
 
 
