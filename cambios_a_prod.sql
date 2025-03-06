@@ -1,5 +1,18 @@
+DROP TABLE IF EXISTS `tx`.`tnd_ventas_pagos`;
+create table `tnd_ventas_pagos`
+(`id` int primary key auto_increment,
+`fecha` datetime default now(),
+`id_kapp` int,
+`id_module_cat` int,
+`id_venta` int,
+`monto` decimal,
+`medio` int,
+`id_usuario_creacion` int,
+`estado` int default 1,
+`id_usuario_modifica` int
+);
 
-
+INSERT INTO `tx`.`ctz_base` (`id`, `id_module_cat`, `id_module_screen`, `field_name`, `id_field_type`, `is_customizable`, `is_active`) VALUES ('15', '2', '5', 'ESTADO', '4', '1', '1');
 
 
 SELECT id_elemento,
