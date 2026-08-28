@@ -315,6 +315,8 @@ CREATE TABLE `tx`.`elementos_datos` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+ALTER TABLE `elementos_datos` ADD INDEX (`id_elemento`);
+ALTER TABLE `elementos_datos` ADD INDEX (`id_ctz`);
 
 
 

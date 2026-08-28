@@ -214126,6 +214126,10 @@ ALTER TABLE `elementos`
 ALTER TABLE `elementos_datos`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75142;
 
+ALTER TABLE `elementos_datos` ADD INDEX (`id_ctz`);
+
+ALTER TABLE `elementos_datos` ADD INDEX (`id_elemento`);
+
 --
 -- AUTO_INCREMENT de la tabla `inv_factura_maestra`
 --
