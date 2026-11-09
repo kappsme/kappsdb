@@ -1,37 +1,56 @@
+CREATE TABLE `parlevel_maquinas_map` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_kapp` int NOT NULL,
+  `parlevel_machine` varchar(100) NOT NULL,
+  `id_cliente` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_kapp_machine` (`id_kapp`,`parlevel_machine`),
+  UNIQUE KEY `uq_kapp_cliente` (`id_kapp`,`id_cliente`);
 
--- PARLEVEL: carga de Prekitting (CSV ProntoSnack)
-CREATE TABLE tx.parlevel_productos_prekiting (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  id_carga CHAR(36) NOT NULL,
-  id_kapp INT NOT NULL,
-  id_usuario INT NOT NULL,
-  nombre_archivo VARCHAR(255),
-  fecha_proceso DATETIME DEFAULT CURRENT_TIMESTAMP,
-  daily_route VARCHAR(20), planned_for DATE, route VARCHAR(100), location VARCHAR(150),
-  asset VARCHAR(50), machine VARCHAR(100), transaccion VARCHAR(20), prekit_alias VARCHAR(20),
-  cst_id VARCHAR(20), product VARCHAR(200), price DECIMAL(12,4), prekit_quantity INT,
-  parlevel INT, filler_username VARCHAR(100), delivery_sequence INT,
-  id_producto INT NULL,
-  existencia INT NULL,
-  requerido_total INT NULL,
-  estado_disponibilidad VARCHAR(20),
-  id_cliente INT NULL,
-  KEY ix_carga (id_carga), KEY ix_kapp_fecha (id_kapp, planned_for, daily_route)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   CREATE TABLE `parlevel_productos_prekiting` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_carga` char(36) NOT NULL,
+  `id_kapp` int NOT NULL,
+  `id_usuario` int NOT NULL,
+  `nombre_archivo` varchar(255) DEFAULT NULL,
+  `fecha_proceso` datetime DEFAULT CURRENT_TIMESTAMP,
+  `daily_route` varchar(20) DEFAULT NULL,
+  `planned_for` date DEFAULT NULL,
+  `route` varchar(100) DEFAULT NULL,
+  `location` varchar(150) DEFAULT NULL,
+  `asset` varchar(50) DEFAULT NULL,
+  `machine` varchar(100) DEFAULT NULL,
+  `transaccion` varchar(20) DEFAULT NULL,
+  `prekit_alias` varchar(20) DEFAULT NULL,
+  `cst_id` varchar(20) DEFAULT NULL,
+  `product` varchar(200) DEFAULT NULL,
+  `price` decimal(12,4) DEFAULT NULL,
+  `prekit_quantity` int DEFAULT NULL,
+  `parlevel` int DEFAULT NULL,
+  `filler_username` varchar(100) DEFAULT NULL,
+  `delivery_sequence` int DEFAULT NULL,
+  `id_producto` int DEFAULT NULL,
+  `existencia` int DEFAULT NULL,
+  `requerido_total` int DEFAULT NULL,
+  `estado_disponibilidad` varchar(20) DEFAULT NULL,
+  `id_cliente` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_carga` (`id_carga`),
+  KEY `ix_kapp_fecha` (`id_kapp`,`planned_for`,`daily_route`)
+) ;
 
-CREATE TABLE tx.parlevel_maquinas_map (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  id_kapp INT NOT NULL,
-  parlevel_machine VARCHAR(100) NOT NULL,
-  id_cliente INT NOT NULL,
-  UNIQUE KEY uq_kapp_machine (id_kapp, parlevel_machine),
-  UNIQUE KEY uq_kapp_cliente (id_kapp, id_cliente)  -- 1 a 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Relacion 1 a 1 de productos (la tabla ya existe; ajustar nombres de columnas si difieren).
--- Antes de correrlo, revisar que no haya duplicados:
---   SELECT id_kapp, parlevel_nombre, COUNT(*) FROM tx.parlevel_productos_map GROUP BY 1,2 HAVING COUNT(*)>1;
---   SELECT id_kapp, id_producto, COUNT(*) FROM tx.parlevel_productos_map GROUP BY 1,2 HAVING COUNT(*)>1;
-ALTER TABLE tx.parlevel_productos_map
-  ADD UNIQUE KEY uq_kapp_nombre (id_kapp, parlevel_nombre),
-  ADD UNIQUE KEY uq_kapp_producto (id_kapp, id_producto);
+CREATE TABLE `parlevel_productos_map` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `kapp_id` int NOT NULL COMMENT 'ID de la KAPP (tenant): kapps_db.kapps.id = tx.elementos.id_kapp',
+  `producto_id` int NOT NULL COMMENT 'ID del producto en KAPPS: tx.elementos.id (id_module_cat = 3)',
+  `parlevel_nombre` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nombre del producto en PARLEVEL',
+  `estado` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = activo, 0 = inactivo',
+  `id_usuario` int DEFAULT NULL COMMENT 'kapps_db.accounts.id de quien creó el mapeo',
+  `fecha_creacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_modificacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_parlevel_kapp_nombre` (`kapp_id`,`parlevel_nombre`),
+  KEY `ix_parlevel_kapp_producto` (`kapp_id`,`producto_id`),
+  KEY `fk_parlevel_map_elemento` (`producto_id`),
+  CONSTRAINT `fk_parlevel_map_elemento` FOREIGN KEY (`producto_id`) REFERENCES `elementos` (`id`) ON DELETE CASCADE
+) ;

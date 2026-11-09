@@ -26,6 +26,64 @@ DROP DATABASE IF EXISTS `tx`;
 CREATE DATABASE IF NOT EXISTS `tx` DEFAULT CHARACTER SET latin1 COLLATE latin1_swedish_ci;
 USE `tx`;
 
+
+CREATE TABLE `parlevel_maquinas_map` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_kapp` int NOT NULL,
+  `parlevel_machine` varchar(100) NOT NULL,
+  `id_cliente` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_kapp_machine` (`id_kapp`,`parlevel_machine`),
+  UNIQUE KEY `uq_kapp_cliente` (`id_kapp`,`id_cliente`);
+
+   CREATE TABLE `parlevel_productos_prekiting` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_carga` char(36) NOT NULL,
+  `id_kapp` int NOT NULL,
+  `id_usuario` int NOT NULL,
+  `nombre_archivo` varchar(255) DEFAULT NULL,
+  `fecha_proceso` datetime DEFAULT CURRENT_TIMESTAMP,
+  `daily_route` varchar(20) DEFAULT NULL,
+  `planned_for` date DEFAULT NULL,
+  `route` varchar(100) DEFAULT NULL,
+  `location` varchar(150) DEFAULT NULL,
+  `asset` varchar(50) DEFAULT NULL,
+  `machine` varchar(100) DEFAULT NULL,
+  `transaccion` varchar(20) DEFAULT NULL,
+  `prekit_alias` varchar(20) DEFAULT NULL,
+  `cst_id` varchar(20) DEFAULT NULL,
+  `product` varchar(200) DEFAULT NULL,
+  `price` decimal(12,4) DEFAULT NULL,
+  `prekit_quantity` int DEFAULT NULL,
+  `parlevel` int DEFAULT NULL,
+  `filler_username` varchar(100) DEFAULT NULL,
+  `delivery_sequence` int DEFAULT NULL,
+  `id_producto` int DEFAULT NULL,
+  `existencia` int DEFAULT NULL,
+  `requerido_total` int DEFAULT NULL,
+  `estado_disponibilidad` varchar(20) DEFAULT NULL,
+  `id_cliente` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_carga` (`id_carga`),
+  KEY `ix_kapp_fecha` (`id_kapp`,`planned_for`,`daily_route`)
+) ;
+
+CREATE TABLE `parlevel_productos_map` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `kapp_id` int NOT NULL COMMENT 'ID de la KAPP (tenant): kapps_db.kapps.id = tx.elementos.id_kapp',
+  `producto_id` int NOT NULL COMMENT 'ID del producto en KAPPS: tx.elementos.id (id_module_cat = 3)',
+  `parlevel_nombre` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nombre del producto en PARLEVEL',
+  `estado` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = activo, 0 = inactivo',
+  `id_usuario` int DEFAULT NULL COMMENT 'kapps_db.accounts.id de quien creó el mapeo',
+  `fecha_creacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_modificacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_parlevel_kapp_nombre` (`kapp_id`,`parlevel_nombre`),
+  KEY `ix_parlevel_kapp_producto` (`kapp_id`,`producto_id`),
+  KEY `fk_parlevel_map_elemento` (`producto_id`),
+  CONSTRAINT `fk_parlevel_map_elemento` FOREIGN KEY (`producto_id`) REFERENCES `elementos` (`id`) ON DELETE CASCADE
+) ;
+
 drop table if exists `ctz_inv_favoritos`;
 create table `tx`.`ctz_inv_favoritos`
 (`id` INTEGER PRIMARY KEY AUTO_INCREMENT,
@@ -71914,45 +71972,6 @@ WHERE m.type = 'MAIN'
                   FROM kapps_db.tx_params_cat c
                   WHERE c.module_id = m.id
                     AND c.descripcion = 'Integración con PARLEVEL');
-
-CREATE TABLE IF NOT EXISTS tx.parlevel_productos_map (
-    id                 INT NOT NULL AUTO_INCREMENT,
-    kapp_id            INT NOT NULL                                   COMMENT 'ID de la KAPP (tenant): kapps_db.kapps.id = tx.elementos.id_kapp',
-    producto_id        INT NOT NULL                                   COMMENT 'ID del producto en KAPPS: tx.elementos.id (id_module_cat = 3)',
-    parlevel_nombre    VARCHAR(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL
-                                                                      COMMENT 'Nombre del producto en PARLEVEL',
-    estado             TINYINT(1) NOT NULL DEFAULT 1                  COMMENT '1 = activo, 0 = inactivo',
-    id_usuario         INT NULL                                       COMMENT 'kapps_db.accounts.id de quien creó el mapeo',
-    fecha_creacion     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    fecha_modificacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_parlevel_kapp_nombre (kapp_id, parlevel_nombre),
-    KEY ix_parlevel_kapp_producto (kapp_id, producto_id),
-    CONSTRAINT fk_parlevel_map_elemento FOREIGN KEY (producto_id) REFERENCES tx.elementos (id) ON DELETE CASCADE
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COMMENT = 'Mapeo de productos KAPPS <-> PARLEVEL por KAPP';
-
-
-  CREATE TABLE tx.parlevel_productos_prekiting (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  id_carga CHAR(36) NOT NULL,
-  id_kapp INT NOT NULL,
-  id_usuario INT NOT NULL,
-  nombre_archivo VARCHAR(255),
-  fecha_proceso DATETIME DEFAULT CURRENT_TIMESTAMPc,
-  daily_route VARCHAR(20), planned_for DATE, route VARCHAR(100), location VARCHAR(150),
-  asset VARCHAR(50), machine VARCHAR(100), transaccion VARCHAR(20), prekit_alias VARCHAR(20),
-  cst_id VARCHAR(20), product VARCHAR(200), price DECIMAL(12,4), prekit_quantity INT,
-  parlevel INT, filler_username VARCHAR(100), delivery_sequence INT,
-  id_producto INT NULL,
-  existencia INT NULL,
-  requerido_total INT NULL,
-  estado_disponibilidad VARCHAR(20),
-  id_cliente INT NULL,
-  KEY ix_carga (id_carga), KEY ix_kapp_fecha (id_kapp, planned_for, daily_route)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 
 DROP TABLE IF EXISTS `tx_params`;
 CREATE TABLE `tx_params` (
