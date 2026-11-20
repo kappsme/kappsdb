@@ -5,7 +5,11 @@
 --   * Una sección por cambio, con fecha (AAAA-MM-DD) y motivo.
 --   * Scripts idempotentes: se pueden correr más de una vez sin duplicar datos.
 --   * Los cambios nuevos se agregan al FINAL del archivo, nunca se editan los anteriores.
---   * Esquemas: kapps_db (administración), tx (datos de los tenants).
+--   * Esquemas: kapps_db (administración, compartido por producción y sandbox)
+--     y el de datos de los tenants: tx en producción, tx_pre en el sandbox.
+--   * Las tablas de datos NUNCA llevan el esquema escrito (nada de tx.tabla ni
+--     table_schema = 'tx'): se usa la base seleccionada (USE tx; o USE tx_pre;)
+--     y DATABASE(). Así el mismo script sirve para producción y para el sandbox.
 -- =====================================================================
 
 
@@ -31,9 +35,9 @@
 --     * Que el elemento pertenezca realmente a kapp_id y sea un producto
 --       (no un lote) lo valida la aplicación.
 --   NOTA: si una versión anterior de esta tabla (producto_id VARCHAR(6)) ya se
---   creó, está vacía: ejecutar antes  DROP TABLE tx.parlevel_productos_map;
+--   creó, está vacía: ejecutar antes  DROP TABLE parlevel_productos_map;
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS tx.parlevel_productos_map (
+CREATE TABLE IF NOT EXISTS parlevel_productos_map (
     id                 INT NOT NULL AUTO_INCREMENT,
     kapp_id            INT NOT NULL                                   COMMENT 'ID de la KAPP (tenant): kapps_db.kapps.id = tx.elementos.id_kapp',
     producto_id        INT NOT NULL                                   COMMENT 'ID del producto en KAPPS: tx.elementos.id (id_module_cat = 3)',
@@ -46,7 +50,7 @@ CREATE TABLE IF NOT EXISTS tx.parlevel_productos_map (
     PRIMARY KEY (id),
     UNIQUE KEY uq_parlevel_kapp_nombre (kapp_id, parlevel_nombre),
     KEY ix_parlevel_kapp_producto (kapp_id, producto_id),
-    CONSTRAINT fk_parlevel_map_elemento FOREIGN KEY (producto_id) REFERENCES tx.elementos (id) ON DELETE CASCADE
+    CONSTRAINT fk_parlevel_map_elemento FOREIGN KEY (producto_id) REFERENCES elementos (id) ON DELETE CASCADE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COMMENT = 'Mapeo de productos KAPPS <-> PARLEVEL por KAPP';
@@ -117,7 +121,7 @@ WHERE NOT EXISTS (SELECT 1 FROM kapps_db.tx_params_cat WHERE module_id = 6 AND n
 --
 --   Convenciones de estas tablas:
 --     * Todas llevan prefijo brb_ y viven en el esquema de datos (tx).
---       Ejecutar esta sección con ese esquema seleccionado (USE tx;).
+--       Ejecutar esta sección con ese esquema seleccionado (USE tx; o USE tx_pre; en el sandbox).
 --     * Fechas/horas de citas y bloqueos se guardan en UTC (columnas *_utc);
 --       la app las muestra en la zona horaria de cada barbería.
 --     * Horarios semanales: dia_semana 0 = lunes ... 6 = domingo.
@@ -386,7 +390,7 @@ CREATE TABLE IF NOT EXISTS brb_solicitudes_datos (
 --   Guarda QUÉ productos son favoritos de cada KAPP y en qué orden.
 --   No confundir con ctz_inv_favoritos, que guarda qué CAMPOS del producto se
 --   muestran en el botón de cada favorito.
---   Ejecutar con el esquema de datos seleccionado (USE tx;). Si la tabla ya
+--   Ejecutar con el esquema de datos seleccionado (USE tx; o USE tx_pre; en el sandbox). Si la tabla ya
 --   existe (producción), no hace nada.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS inv_favoritos (
@@ -453,7 +457,7 @@ DEALLOCATE PREPARE brb_stmt;
 --   La integración se activa por KAPP con el parámetro "Integración con PARLEVEL"
 --   (módulo DESPACHO, ya existente). Sin él TX no muestra nada de esto.
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS tx.parlevel_maquinas_map (
+CREATE TABLE IF NOT EXISTS parlevel_maquinas_map (
     id               INT NOT NULL AUTO_INCREMENT,
     id_kapp          INT NOT NULL                                   COMMENT 'ID de la KAPP (tenant)',
     parlevel_machine VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL
@@ -466,7 +470,7 @@ CREATE TABLE IF NOT EXISTS tx.parlevel_maquinas_map (
   DEFAULT CHARSET = utf8mb4
   COMMENT = 'Mapeo de máquinas KAPPS <-> PARLEVEL por KAPP';
 
-CREATE TABLE IF NOT EXISTS tx.parlevel_productos_prekiting (
+CREATE TABLE IF NOT EXISTS parlevel_productos_prekiting (
     id                    INT NOT NULL AUTO_INCREMENT,
     id_carga              CHAR(36) NOT NULL,
     id_kapp               INT NOT NULL,
@@ -512,29 +516,160 @@ CREATE TABLE IF NOT EXISTS tx.parlevel_productos_prekiting (
 --   Idempotente (cada columna/índice solo se crea si no existe).
 -- ---------------------------------------------------------------------
 SET @pl_col := (SELECT COUNT(*) FROM information_schema.columns
-                 WHERE table_schema = 'tx' AND table_name = 'parlevel_productos_prekiting' AND column_name = 'id_venta');
-SET @pl_sql := IF(@pl_col = 0, 'ALTER TABLE tx.parlevel_productos_prekiting ADD COLUMN id_venta INT NULL COMMENT ''tnd_ventas.id del despacho de esta máquina''', 'SELECT 1');
+                 WHERE table_schema = DATABASE() AND table_name = 'parlevel_productos_prekiting' AND column_name = 'id_venta');
+SET @pl_sql := IF(@pl_col = 0, 'ALTER TABLE parlevel_productos_prekiting ADD COLUMN id_venta INT NULL COMMENT ''tnd_ventas.id del despacho de esta máquina''', 'SELECT 1');
 PREPARE pl_stmt FROM @pl_sql;
 EXECUTE pl_stmt;
 DEALLOCATE PREPARE pl_stmt;
 
 SET @pl_col := (SELECT COUNT(*) FROM information_schema.columns
-                 WHERE table_schema = 'tx' AND table_name = 'parlevel_productos_prekiting' AND column_name = 'fecha_despacho');
-SET @pl_sql := IF(@pl_col = 0, 'ALTER TABLE tx.parlevel_productos_prekiting ADD COLUMN fecha_despacho DATETIME NULL COMMENT ''Cuándo se despachó la carga (NULL = sin despachar)''', 'SELECT 1');
+                 WHERE table_schema = DATABASE() AND table_name = 'parlevel_productos_prekiting' AND column_name = 'fecha_despacho');
+SET @pl_sql := IF(@pl_col = 0, 'ALTER TABLE parlevel_productos_prekiting ADD COLUMN fecha_despacho DATETIME NULL COMMENT ''Cuándo se despachó la carga (NULL = sin despachar)''', 'SELECT 1');
 PREPARE pl_stmt FROM @pl_sql;
 EXECUTE pl_stmt;
 DEALLOCATE PREPARE pl_stmt;
 
 SET @pl_col := (SELECT COUNT(*) FROM information_schema.columns
-                 WHERE table_schema = 'tx' AND table_name = 'parlevel_productos_prekiting' AND column_name = 'id_usuario_despacho');
-SET @pl_sql := IF(@pl_col = 0, 'ALTER TABLE tx.parlevel_productos_prekiting ADD COLUMN id_usuario_despacho INT NULL COMMENT ''kapps_db.accounts.id de quien despachó''', 'SELECT 1');
+                 WHERE table_schema = DATABASE() AND table_name = 'parlevel_productos_prekiting' AND column_name = 'id_usuario_despacho');
+SET @pl_sql := IF(@pl_col = 0, 'ALTER TABLE parlevel_productos_prekiting ADD COLUMN id_usuario_despacho INT NULL COMMENT ''kapps_db.accounts.id de quien despachó''', 'SELECT 1');
 PREPARE pl_stmt FROM @pl_sql;
 EXECUTE pl_stmt;
 DEALLOCATE PREPARE pl_stmt;
 
 SET @pl_idx := (SELECT COUNT(*) FROM information_schema.statistics
-                 WHERE table_schema = 'tx' AND table_name = 'parlevel_productos_prekiting' AND index_name = 'ix_kapp_despacho');
-SET @pl_sql := IF(@pl_idx = 0, 'ALTER TABLE tx.parlevel_productos_prekiting ADD KEY ix_kapp_despacho (id_kapp, daily_route, planned_for, fecha_despacho)', 'SELECT 1');
+                 WHERE table_schema = DATABASE() AND table_name = 'parlevel_productos_prekiting' AND index_name = 'ix_kapp_despacho');
+SET @pl_sql := IF(@pl_idx = 0, 'ALTER TABLE parlevel_productos_prekiting ADD KEY ix_kapp_despacho (id_kapp, daily_route, planned_for, fecha_despacho)', 'SELECT 1');
 PREPARE pl_stmt FROM @pl_sql;
 EXECUTE pl_stmt;
 DEALLOCATE PREPARE pl_stmt;
+
+-- ---------------------------------------------------------------------
+-- 2026-11-19  Ingreso a TX con Google ("Continuar con Google")
+--   Parámetro por kapp 'Login con Google' (módulo 6 CONFIGURACION,
+--   apagado por defecto): se enciende en Admin > kapp > CONFIGURACION o
+--   en TX > Usuarios (administrador nivel 1). TX lo lee por nombre: no
+--   cambiar el nombre.
+--   accounts.google_login: el usuario puede entrar con Google (1 = sí).
+--   accounts.google_sub: cuenta de Google vinculada (claim sub). Se llena
+--   en el primer ingreso, buscando por el correo del usuario; se borra al
+--   cambiar el correo o al quitarle el permiso.
+--   Idempotente.
+-- ---------------------------------------------------------------------
+INSERT INTO kapps_db.tx_params_cat
+    (module_id, nombre, descripcion, estado, html_type, category, customizable, required, `system`, default_value)
+SELECT 6, 'Login con Google', 'Permite ingresar con una cuenta de Google', 1, 'CHECKBOX', 'PARAMETERS', 1, 1, 1, '0'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM kapps_db.tx_params_cat WHERE module_id = 6 AND nombre = 'Login con Google');
+
+SET @gl_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND column_name = 'google_login');
+SET @gl_sql := IF(@gl_col = 0, 'ALTER TABLE kapps_db.accounts ADD COLUMN google_login TINYINT(1) NOT NULL DEFAULT 1 COMMENT ''Puede ingresar con Google (si la kapp lo permite)''', 'SELECT 1');
+PREPARE gl_stmt FROM @gl_sql;
+EXECUTE gl_stmt;
+DEALLOCATE PREPARE gl_stmt;
+
+SET @gl_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND column_name = 'google_sub');
+SET @gl_sql := IF(@gl_col = 0, 'ALTER TABLE kapps_db.accounts ADD COLUMN google_sub VARCHAR(64) NULL COMMENT ''Cuenta de Google vinculada (claim sub)''', 'SELECT 1');
+PREPARE gl_stmt FROM @gl_sql;
+EXECUTE gl_stmt;
+DEALLOCATE PREPARE gl_stmt;
+
+SET @gl_idx := (SELECT COUNT(*) FROM information_schema.statistics
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND index_name = 'uq_accounts_google');
+SET @gl_sql := IF(@gl_idx = 0, 'ALTER TABLE kapps_db.accounts ADD UNIQUE KEY uq_accounts_google (kapp_id, google_sub)', 'SELECT 1');
+PREPARE gl_stmt FROM @gl_sql;
+EXECUTE gl_stmt;
+DEALLOCATE PREPARE gl_stmt;
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-19  Procedimiento reportes_data_temporal sin esquema fijo
+--   La versión anterior leía de tx.elementos_datos, tx.ctz y tx.inv_lotes_log
+--   con el esquema escrito: en el sandbox (tx_pre) el reporte de existencias
+--   de Inventario tomaba datos de PRODUCCIÓN. Esta versión usa las tablas de
+--   la base donde se crea el procedimiento.
+--   Ejecutar UNA VEZ EN CADA BASE de datos: con USE tx; y con USE tx_pre;
+--   (en phpMyAdmin: elegir la base y usar el delimitador $$).
+--   Idempotente (DROP + CREATE).
+-- ---------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS reportes_data_temporal;
+DELIMITER $$
+CREATE PROCEDURE reportes_data_temporal (IN par_kapp_id INT, IN par_reporte_id INT, IN fecha_inicio DATE, IN fecha_fin DATE)
+BEGIN
+    delete from reportes_data_temporal where kapp_id=par_kapp_id AND reporte_id=par_reporte_id;
+
+    insert into reportes_data_temporal (kapp_id, reporte_id, valor1, valor2)
+    select par_kapp_id, par_reporte_id, ed.valor, ed3.valor
+        from elementos_datos ed
+            left join elementos_datos ed2 on ed2.id_elemento = ed.id_elemento and ed2.id_ctz = (select id from ctz where id_kapp=par_kapp_id and id_ctz_base=14)
+            left join elementos_datos ed3 on ed3.id_elemento = ed.id_elemento and ed3.id_ctz = (select id from ctz where id_kapp=par_kapp_id and id_ctz_base=19)
+        where ed.id_ctz = (select id from ctz where id_kapp=par_kapp_id and id_ctz_base=3) and ed2.valor>0
+        group by ed.valor, ed3.valor
+    union
+    select par_kapp_id, par_reporte_id, ed2.valor id_producto, ed4.valor
+        from elementos e
+            inner join elementos_datos ed on ed.id_elemento=e.id and ed.id_ctz = (select id from ctz where id_kapp = par_kapp_id and id_ctz_base=6)
+            inner join elementos_datos ed2 on ed2.id_elemento=e.id and ed2.id_ctz = (select id from ctz where id_kapp = par_kapp_id and id_ctz_base=3)
+            inner join elementos_datos ed4 on ed4.id_elemento=e.id and ed4.id_ctz = (select id from ctz where id_kapp = par_kapp_id and id_ctz_base=19)
+        where id_kapp = par_kapp_id and ed.valor between fecha_inicio and fecha_fin
+        group by ed2.valor, ed4.valor
+    union
+    select par_kapp_id, par_reporte_id, id_producto, edx.valor
+        from inv_lotes_log ll
+            left join elementos_datos edx on edx.id_elemento=ll.id_lote
+                and edx.id_ctz = (SELECT id FROM ctz where id_kapp=par_kapp_id and id_ctz_base=19)
+        where fecha between fecha_inicio and fecha_fin and tipo=5
+        group by id_producto, edx.valor;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-19  Perfil de usuario: edad, privacidad, tema y foto
+--   accounts.fecha_nacimiento: la registra CADA usuario al entrar; menores
+--     de 18 años no ingresan (TX y Admin).
+--   accounts.politica_version / politica_fecha: versión de la política de
+--     privacidad (Ley 8968) que el usuario aceptó y cuándo. Si TX publica una
+--     versión nueva, se le pide aceptarla de nuevo.
+--   accounts.tema: tema de color elegido (bosque, arrecife, manglar, volcan,
+--     paramo). NULL = bosque.
+--   accounts_foto: foto de perfil reducida en el navegador (máx. 200 KB).
+--   Esquema kapps_db (compartido por producción y sandbox). Idempotente.
+-- ---------------------------------------------------------------------
+SET @pf_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND column_name = 'fecha_nacimiento');
+SET @pf_sql := IF(@pf_col = 0, 'ALTER TABLE kapps_db.accounts ADD COLUMN fecha_nacimiento DATE NULL COMMENT ''La registra el propio usuario; menores de 18 no ingresan''', 'SELECT 1');
+PREPARE pf_stmt FROM @pf_sql;
+EXECUTE pf_stmt;
+DEALLOCATE PREPARE pf_stmt;
+
+SET @pf_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND column_name = 'politica_version');
+SET @pf_sql := IF(@pf_col = 0, 'ALTER TABLE kapps_db.accounts ADD COLUMN politica_version VARCHAR(20) NULL COMMENT ''Versión de la política de privacidad aceptada''', 'SELECT 1');
+PREPARE pf_stmt FROM @pf_sql;
+EXECUTE pf_stmt;
+DEALLOCATE PREPARE pf_stmt;
+
+SET @pf_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND column_name = 'politica_fecha');
+SET @pf_sql := IF(@pf_col = 0, 'ALTER TABLE kapps_db.accounts ADD COLUMN politica_fecha DATETIME NULL COMMENT ''Cuándo aceptó la política''', 'SELECT 1');
+PREPARE pf_stmt FROM @pf_sql;
+EXECUTE pf_stmt;
+DEALLOCATE PREPARE pf_stmt;
+
+SET @pf_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND column_name = 'tema');
+SET @pf_sql := IF(@pf_col = 0, 'ALTER TABLE kapps_db.accounts ADD COLUMN tema VARCHAR(20) NULL COMMENT ''Tema de color de la interfaz''', 'SELECT 1');
+PREPARE pf_stmt FROM @pf_sql;
+EXECUTE pf_stmt;
+DEALLOCATE PREPARE pf_stmt;
+
+CREATE TABLE IF NOT EXISTS kapps_db.accounts_foto (
+    id_account   INT          NOT NULL PRIMARY KEY COMMENT 'kapps_db.accounts.id',
+    mime         VARCHAR(20)  NOT NULL                COMMENT 'image/jpeg, image/png o image/webp',
+    datos        MEDIUMBLOB   NOT NULL                COMMENT 'Imagen reducida (máx. 200 KB)',
+    actualizado  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'Foto de perfil de cada usuario';
