@@ -5,11 +5,15 @@
 --   * Una sección por cambio, con fecha (AAAA-MM-DD) y motivo.
 --   * Scripts idempotentes: se pueden correr más de una vez sin duplicar datos.
 --   * Los cambios nuevos se agregan al FINAL del archivo, nunca se editan los anteriores.
---   * Esquemas: kapps_db (administración, compartido por producción y sandbox)
---     y el de datos de los tenants: tx en producción, tx_pre en el sandbox.
+--   * Esquemas (desde 2026-11-20 el sandbox ya no comparte kapps_db con producción):
+--       producción: tx + kapps_db        sandbox: tx_pre + kapps_db_pre
 --   * Las tablas de datos NUNCA llevan el esquema escrito (nada de tx.tabla ni
 --     table_schema = 'tx'): se usa la base seleccionada (USE tx; o USE tx_pre;)
 --     y DATABASE(). Así el mismo script sirve para producción y para el sandbox.
+--   * Las de administración se escriben SIEMPRE como kapps_db.tabla (y
+--     table_schema = 'kapps_db'). Para el sandbox se traduce con
+--     ./sql_ambiente.sh kapps_db_pre > updates_pre.sql  y se corre con tx_pre
+--     seleccionada. Las apps hacen la misma traducción con MYSQL_DB_KAPPS.
 -- =====================================================================
 
 
