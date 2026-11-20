@@ -673,3 +673,27 @@ CREATE TABLE IF NOT EXISTS kapps_db.accounts_foto (
     datos        MEDIUMBLOB   NOT NULL                COMMENT 'Imagen reducida (máx. 200 KB)',
     actualizado  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'Foto de perfil de cada usuario';
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-20  Ingreso con Google sin código de negocio
+--   Una cuenta de Google identifica a UN solo usuario de KAPPS: TX busca el
+--   negocio por google_sub (o, la primera vez, por el correo). Al guardar un
+--   usuario con "Puede entrar con Google", TX y Admin rechazan un correo que
+--   otro usuario ya tenga con Google. Aquí: google_sub único en toda la base.
+--   Si dos usuarios quedaron vinculados a la misma cuenta de Google, se
+--   conserva el vínculo del más antiguo (el otro se vuelve a vincular al
+--   entrar, si corresponde). Idempotente.
+-- ---------------------------------------------------------------------
+UPDATE kapps_db.accounts a
+  JOIN (SELECT google_sub, MIN(id) conservar FROM kapps_db.accounts
+         WHERE google_sub IS NOT NULL GROUP BY google_sub HAVING COUNT(*) > 1) d
+    ON d.google_sub = a.google_sub AND a.id <> d.conservar
+   SET a.google_sub = NULL;
+
+SET @gs_idx := (SELECT COUNT(*) FROM information_schema.statistics
+                 WHERE table_schema = 'kapps_db' AND table_name = 'accounts' AND index_name = 'uq_accounts_google_sub');
+SET @gs_sql := IF(@gs_idx = 0, 'ALTER TABLE kapps_db.accounts ADD UNIQUE KEY uq_accounts_google_sub (google_sub)', 'SELECT 1');
+PREPARE gs_stmt FROM @gs_sql;
+EXECUTE gs_stmt;
+DEALLOCATE PREPARE gs_stmt;
