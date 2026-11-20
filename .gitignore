@@ -3,3 +3,6 @@
 
 # metadatos de Mac OS X
 .DS_Store
+
+# generado por sql_ambiente.sh (se vuelve a crear cada vez)
+updates_pre.sql
