@@ -701,3 +701,258 @@ SET @gs_sql := IF(@gs_idx = 0, 'ALTER TABLE kapps_db.accounts ADD UNIQUE KEY uq_
 PREPARE gs_stmt FROM @gs_sql;
 EXECUTE gs_stmt;
 DEALLOCATE PREPARE gs_stmt;
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-23  BARBERÍAS: Caja (cobros, ticket, devoluciones), encuestas de
+--   satisfacción, clientes recurrentes y máximo de reservas configurable.
+--   SOLO AGREGA: 6 tablas nuevas brb_* y 14 columnas nuevas en brb_barberias
+--   (todas con valor por defecto o NULL; el código escribe esa tabla siempre
+--   con lista de columnas). No modifica ni borra datos existentes y no toca
+--   tablas de otros módulos ni de kapps_db.
+--   El rol de caja se guarda en brb_roles con rol = 'caja' (sin cambio de
+--   estructura; las consultas existentes filtran rol = 'admin').
+--   Ejecutar con el esquema de datos seleccionado (USE tx; o USE tx_pre;).
+--   Idempotente. Orden en producción: correr este SQL y DESPUÉS desplegar TX.
+--   Documentación: tx/docs/modules/barberias/README.md (sección Caja).
+-- ---------------------------------------------------------------------
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'max_citas_cliente');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN max_citas_cliente TINYINT NOT NULL DEFAULT 2 COMMENT ''Reservas vigentes que un cliente puede tener a la vez (en toda la organización)''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_nombre_comercial');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_nombre_comercial VARCHAR(80) NULL COMMENT ''Ticket: nombre comercial (vacío = nombre de la barbería)''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_razon_social');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_razon_social VARCHAR(120) NULL COMMENT ''Ticket: nombre o razón social del contribuyente''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_tipo_cedula');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_tipo_cedula VARCHAR(10) NULL COMMENT ''Ticket: fisica | juridica | dimex | nite''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_cedula');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_cedula VARCHAR(20) NULL COMMENT ''Ticket: número de identificación del contribuyente''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_regimen');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_regimen VARCHAR(12) NOT NULL DEFAULT ''tradicional'' COMMENT ''tradicional | simplificado''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_iva_pct');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_iva_pct DECIMAL(5,2) NOT NULL DEFAULT 13.00 COMMENT ''Tarifa de IVA de los servicios''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_precios_con_iva');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_precios_con_iva TINYINT(1) NOT NULL DEFAULT 1 COMMENT ''1 = los precios ya incluyen el IVA''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_direccion');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_direccion VARCHAR(200) NULL COMMENT ''Ticket: dirección (vacío = la de la barbería)''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_telefono');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_telefono VARCHAR(20) NULL COMMENT ''Ticket: teléfono (vacío = el de la barbería)''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_correo');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_correo VARCHAR(100) NULL COMMENT ''Ticket: correo (vacío = el de la barbería)''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_mostrar_cliente');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_mostrar_cliente TINYINT(1) NOT NULL DEFAULT 1 COMMENT ''1 = el ticket muestra el nombre del cliente si se conoce''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'tk_leyenda');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN tk_leyenda VARCHAR(300) NULL COMMENT ''Ticket: mensaje adicional al pie''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+SET @cj_col := (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'brb_barberias' AND column_name = 'encuesta_activa');
+SET @cj_sql := IF(@cj_col = 0, 'ALTER TABLE brb_barberias ADD COLUMN encuesta_activa TINYINT(1) NOT NULL DEFAULT 0 COMMENT ''1 = enviar encuesta de satisfacción por correo después de cada cobro''', 'SELECT 1');
+PREPARE cj_stmt FROM @cj_sql;
+EXECUTE cj_stmt;
+DEALLOCATE PREPARE cj_stmt;
+
+CREATE TABLE IF NOT EXISTS brb_cobros (
+    id              INT NOT NULL AUTO_INCREMENT,
+    kapp_id         INT NOT NULL,
+    barberia_id     INT NOT NULL,
+    consecutivo     INT NOT NULL COMMENT 'Número del ticket, consecutivo por barbería',
+    cita_id         INT NULL COMMENT 'Reserva que se cobra (NULL = cliente sin reserva)',
+    cliente_id      INT NULL,
+    cliente_nombre  VARCHAR(80) NULL,
+    cliente_correo  VARCHAR(100) NULL,
+    barbero_id      INT NULL COMMENT 'Quién atendió',
+    forma_pago      VARCHAR(14) NOT NULL COMMENT 'efectivo | sinpe | tarjeta | transferencia',
+    referencia      VARCHAR(60) NULL COMMENT 'Comprobante SINPE, transferencia o voucher',
+    monto_recibido  DECIMAL(10,2) NULL COMMENT 'Efectivo entregado por el cliente',
+    subtotal        DECIMAL(10,2) NOT NULL COMMENT 'Sin IVA, después del descuento',
+    descuento       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    iva             DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total           DECIMAL(10,2) NOT NULL,
+    iva_pct         DECIMAL(5,2) NOT NULL DEFAULT 0,
+    emisor          TEXT NULL COMMENT 'JSON: datos del ticket al momento del cobro (razón social, cédula, régimen...)',
+    notas           VARCHAR(200) NULL,
+    idem_key        CHAR(32) NULL COMMENT 'Evita duplicar el cobro si el formulario se envía dos veces',
+    cuenta_id       INT NOT NULL COMMENT 'kapps_db.accounts.id de quien cobró',
+    fecha_utc       DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_brb_cobros_consecutivo (barberia_id, consecutivo),
+    UNIQUE KEY uq_brb_cobros_idem (idem_key),
+    KEY ix_brb_cobros_fecha (barberia_id, fecha_utc),
+    KEY ix_brb_cobros_cita (cita_id),
+    KEY ix_brb_cobros_barbero (barbero_id, fecha_utc),
+    CONSTRAINT fk_brb_cobros_barberia FOREIGN KEY (barberia_id) REFERENCES brb_barberias (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_cobro_lineas (
+    id              INT NOT NULL AUTO_INCREMENT,
+    cobro_id        INT NOT NULL,
+    servicio_id     INT NULL,
+    descripcion     VARCHAR(120) NOT NULL,
+    cantidad        SMALLINT NOT NULL DEFAULT 1,
+    precio_unitario DECIMAL(10,2) NOT NULL COMMENT 'Como se cobra (con IVA si la barbería tiene precios con IVA)',
+    total           DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_brb_cl_cobro (cobro_id),
+    CONSTRAINT fk_brb_cl_cobro FOREIGN KEY (cobro_id) REFERENCES brb_cobros (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_devoluciones (
+    id                 INT NOT NULL AUTO_INCREMENT,
+    kapp_id            INT NOT NULL,
+    barberia_id        INT NOT NULL,
+    cobro_id           INT NOT NULL,
+    monto              DECIMAL(10,2) NOT NULL,
+    forma_pago         VARCHAR(14) NOT NULL COMMENT 'Cómo se devolvió el dinero',
+    justificacion      VARCHAR(400) NOT NULL,
+    cuenta_id          INT NOT NULL COMMENT 'Quién hizo la devolución',
+    fecha_utc          DATETIME NOT NULL,
+    estado             VARCHAR(10) NOT NULL DEFAULT 'pendiente' COMMENT 'pendiente | revisada',
+    revisada_por       INT NULL,
+    fecha_revision_utc DATETIME NULL,
+    nota_revision      VARCHAR(300) NULL,
+    aviso_estado       VARCHAR(12) NULL COMMENT 'Correo al administrador: enviado | fallido | sin_destino',
+    aviso_error        VARCHAR(300) NULL,
+    PRIMARY KEY (id),
+    KEY ix_brb_dev_cobro (cobro_id),
+    KEY ix_brb_dev_barberia (barberia_id, estado, fecha_utc),
+    CONSTRAINT fk_brb_dev_cobro FOREIGN KEY (cobro_id) REFERENCES brb_cobros (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_encuestas (
+    id                  INT NOT NULL AUTO_INCREMENT,
+    kapp_id             INT NOT NULL,
+    barberia_id         INT NOT NULL,
+    cobro_id            INT NOT NULL,
+    cliente_id          INT NULL,
+    correo              VARCHAR(100) NOT NULL,
+    token               CHAR(32) NOT NULL COMMENT 'Secreto del enlace de la encuesta',
+    barbero_id          INT NULL COMMENT 'Barbero que atendió según el cobro (el que aparece elegido)',
+    barbero_calificado  INT NULL COMMENT 'Barbero que el cliente calificó',
+    estrellas           TINYINT NULL COMMENT '1 a 5; NULL = sin responder',
+    comentario          VARCHAR(500) NULL,
+    envio_estado        VARCHAR(10) NOT NULL DEFAULT 'pendiente' COMMENT 'pendiente | enviado | fallido',
+    envio_error         VARCHAR(300) NULL,
+    intentos            TINYINT NOT NULL DEFAULT 0,
+    fecha_utc           DATETIME NOT NULL,
+    fecha_envio_utc     DATETIME NULL,
+    fecha_respuesta_utc DATETIME NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_brb_encuestas_token (token),
+    UNIQUE KEY uq_brb_encuestas_cobro (cobro_id),
+    KEY ix_brb_encuestas_barbero (barbero_calificado, fecha_respuesta_utc),
+    CONSTRAINT fk_brb_encuestas_cobro FOREIGN KEY (cobro_id) REFERENCES brb_cobros (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_recurrentes (
+    id             INT NOT NULL AUTO_INCREMENT,
+    kapp_id        INT NOT NULL,
+    barberia_id    INT NOT NULL,
+    cliente_id     INT NOT NULL,
+    con_espacio    TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = tiene un espacio fijo reservado',
+    barbero_id     INT NULL,
+    servicio_id    INT NULL,
+    dia_semana     TINYINT NULL COMMENT '0 = lunes ... 6 = domingo',
+    hora           TIME NULL,
+    frecuencia     VARCHAR(10) NULL COMMENT 'semanal | quincenal',
+    fecha_inicio   DATE NOT NULL COMMENT 'Fecha en que se agregó: desde ahí se cuentan las semanas',
+    activo         TINYINT(1) NOT NULL DEFAULT 1,
+    notas          VARCHAR(200) NULL,
+    creado_por     INT NULL,
+    fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    generado_hasta DATE NULL COMMENT 'Último día hasta el que ya se crearon las citas',
+    PRIMARY KEY (id),
+    KEY ix_brb_rec_barberia (barberia_id, activo),
+    KEY ix_brb_rec_cliente (cliente_id),
+    CONSTRAINT fk_brb_rec_barberia FOREIGN KEY (barberia_id) REFERENCES brb_barberias (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_recurrente_citas (
+    recurrente_id INT NOT NULL,
+    fecha         DATE NOT NULL,
+    cita_id       INT NULL COMMENT 'NULL = no se pudo reservar ese día (ver motivo)',
+    motivo        VARCHAR(200) NULL,
+    PRIMARY KEY (recurrente_id, fecha),
+    KEY ix_brb_rc_cita (cita_id),
+    CONSTRAINT fk_brb_rc_recurrente FOREIGN KEY (recurrente_id) REFERENCES brb_recurrentes (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-23  BARBERÍAS: la Caja es una función ADICIONAL que se activa
+--   por KAPP desde Admin (Parámetros > BARBERIA > CAJA > "Caja de
+--   Barberías"). Apagada por defecto: las KAPP que ya usan Barberías no
+--   ven ningún cambio hasta que se les active.
+--   SOLO AGREGA una fila al catálogo kapps_db.tx_params_cat (módulo
+--   BARBERIA). No cambia estructuras ni datos. TX solo lo lee (busca por
+--   módulo + categoría 'CAJA': no cambiar la categoría).
+--   Idempotente.
+-- ---------------------------------------------------------------------
+INSERT INTO kapps_db.tx_params_cat
+    (module_id, nombre, descripcion, estado, html_type, category, customizable, required, `system`, default_value)
+SELECT c.id, 'Caja de Barberías', 'Cobros, ticket, devoluciones y encuesta', 1, 'CHECKBOX', 'CAJA', 1, 1, 1, '0'
+FROM kapps_db.kapps_modules_cat c
+WHERE c.code = 'brb'
+  AND NOT EXISTS (SELECT 1 FROM kapps_db.tx_params_cat p WHERE p.module_id = c.id AND p.category = 'CAJA');
