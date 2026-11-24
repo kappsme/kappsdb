@@ -25,3 +25,19 @@ SELECT k.id, c.id
   JOIN kapps_db.kapps_modules_cat c ON c.code IN ('inv', 'dpt', 'brb') OR c.id = 6
  WHERE k.clave = 'TXPR'
    AND NOT EXISTS (SELECT 1 FROM kapps_db.kapps_modules m WHERE m.kapp_id = k.id AND m.module_id = c.id);
+
+-- TXPR con la Caja de Barberías activa (parámetro categoría CAJA del módulo brb; en Admin se puede apagar).
+UPDATE kapps_db.tx_params p
+  JOIN kapps_db.kapps k ON k.id = p.kapp_id
+  JOIN kapps_db.tx_params_cat c ON c.id = p.tx_params_cat_id
+  JOIN kapps_db.kapps_modules_cat mc ON mc.id = c.module_id
+   SET p.valor = '1'
+ WHERE k.clave = 'TXPR' AND c.category = 'CAJA' AND mc.code = 'brb';
+
+INSERT INTO kapps_db.tx_params (kapp_id, tx_params_cat_id, valor)
+SELECT k.id, c.id, '1'
+  FROM kapps_db.kapps k
+  JOIN kapps_db.tx_params_cat c ON c.category = 'CAJA'
+  JOIN kapps_db.kapps_modules_cat mc ON mc.id = c.module_id AND mc.code = 'brb'
+ WHERE k.clave = 'TXPR'
+   AND NOT EXISTS (SELECT 1 FROM kapps_db.tx_params p WHERE p.kapp_id = k.id AND p.tx_params_cat_id = c.id);
