@@ -1026,3 +1026,41 @@ CREATE TABLE IF NOT EXISTS brb_pendiente_lineas (
     KEY ix_brb_pl_pendiente (pendiente_id),
     CONSTRAINT fk_brb_pl_pendiente FOREIGN KEY (pendiente_id) REFERENCES brb_pendientes (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-25  BARBERÍAS: Abonos a los pendientes de pago y ajustes de la
+--   organización.
+--   SOLO AGREGA 2 tablas nuevas brb_*. No modifica tablas existentes ni
+--   datos, y no toca otros módulos ni kapps_db.
+--   brb_pendiente_abonos: cada pago de un pendiente (parcial o el último)
+--   es un cobro normal en brb_cobros, con su ticket; esta tabla lo liga al
+--   pendiente. Saldo = brb_pendientes.total - suma de sus abonos.
+--   brb_ajustes: ajustes de la organización que decide su administrador
+--   general en TX (hoy: 'abonos' = permitir abonos). Sin fila = valor de
+--   fábrica (abonos permitidos).
+--   Ejecutar con el esquema de datos seleccionado (USE tx; o USE tx_pre;).
+--   Idempotente. Requiere la sección «Pendientes de pago».
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS brb_pendiente_abonos (
+    id            INT NOT NULL AUTO_INCREMENT,
+    pendiente_id  INT NOT NULL,
+    cobro_id      INT NOT NULL COMMENT 'brb_cobros.id del pago (con su ticket)',
+    monto         DECIMAL(10,2) NOT NULL,
+    cuenta_id     INT NOT NULL COMMENT 'kapps_db.accounts.id de quien lo cobró',
+    fecha_utc     DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_brb_pa_cobro (cobro_id),
+    KEY ix_brb_pa_pendiente (pendiente_id),
+    CONSTRAINT fk_brb_pa_pendiente FOREIGN KEY (pendiente_id) REFERENCES brb_pendientes (id) ON DELETE CASCADE,
+    CONSTRAINT fk_brb_pa_cobro FOREIGN KEY (cobro_id) REFERENCES brb_cobros (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_ajustes (
+    kapp_id          INT NOT NULL,
+    clave            VARCHAR(40) NOT NULL COMMENT 'abonos = permitir abonos a los pendientes de pago (1/0)',
+    valor            VARCHAR(200) NOT NULL,
+    cuenta_id        INT NOT NULL COMMENT 'kapps_db.accounts.id de quien lo cambió',
+    actualizado_utc  DATETIME NOT NULL,
+    PRIMARY KEY (kapp_id, clave)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
