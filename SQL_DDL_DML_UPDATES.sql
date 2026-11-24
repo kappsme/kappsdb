@@ -956,3 +956,73 @@ SELECT c.id, 'Caja de Barberías', 'Cobros, ticket, devoluciones y encuesta', 1,
 FROM kapps_db.kapps_modules_cat c
 WHERE c.code = 'brb'
   AND NOT EXISTS (SELECT 1 FROM kapps_db.tx_params_cat p WHERE p.module_id = c.id AND p.category = 'CAJA');
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-24  BARBERÍAS: Resumen personalizable por usuario.
+--   SOLO AGREGA la tabla brb_preferencias (orden y bloques visibles del
+--   Resumen de cada usuario, en JSON). No modifica tablas existentes ni
+--   datos, y no toca otros módulos. Si falta, TX usa el orden de fábrica.
+--   Ejecutar con el esquema de datos seleccionado (USE tx; o USE tx_pre;).
+--   Idempotente.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS brb_preferencias (
+    cuenta_id       INT NOT NULL COMMENT 'kapps_db.accounts.id',
+    clave           VARCHAR(40) NOT NULL COMMENT 'inicio = orden del Resumen',
+    valor           TEXT NOT NULL COMMENT 'JSON',
+    actualizado_utc DATETIME NOT NULL,
+    PRIMARY KEY (cuenta_id, clave)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- ---------------------------------------------------------------------
+-- 2026-11-24  BARBERÍAS: Pendientes de pago (el cliente paga después).
+--   SOLO AGREGA 2 tablas nuevas brb_*. No modifica tablas existentes ni
+--   datos, y no toca otros módulos ni kapps_db.
+--   Un pendiente guarda los servicios y precios del día en que se atendió.
+--   No es ingreso: el ingreso nace cuando se paga (se crea un cobro normal
+--   en brb_cobros, con su ticket, y el pendiente queda 'pagado' con su
+--   cobro_id). 'regalia' = el negocio decidió no cobrarlo (con motivo).
+--   Ejecutar con el esquema de datos seleccionado (USE tx; o USE tx_pre;).
+--   Idempotente.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS brb_pendientes (
+    id                INT NOT NULL AUTO_INCREMENT,
+    kapp_id           INT NOT NULL,
+    barberia_id       INT NOT NULL,
+    cliente_id        INT NOT NULL COMMENT 'Obligatorio: quién debe',
+    barbero_id        INT NULL COMMENT 'Quién atendió',
+    subtotal          DECIMAL(10,2) NOT NULL,
+    descuento         DECIMAL(10,2) NOT NULL DEFAULT 0,
+    iva               DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total             DECIMAL(10,2) NOT NULL,
+    iva_pct           DECIMAL(5,2) NOT NULL DEFAULT 0,
+    notas             VARCHAR(200) NULL,
+    estado            VARCHAR(10) NOT NULL DEFAULT 'pendiente' COMMENT 'pendiente | pagado | regalia',
+    cobro_id          INT NULL COMMENT 'brb_cobros.id con el que se pagó',
+    motivo_regalia    VARCHAR(300) NULL,
+    cerrado_por       INT NULL COMMENT 'kapps_db.accounts.id de quien lo cobró o lo dio en regalía',
+    fecha_cierre_utc  DATETIME NULL,
+    idem_key          CHAR(32) NULL COMMENT 'Evita duplicar si el formulario se envía dos veces',
+    cuenta_id         INT NOT NULL COMMENT 'kapps_db.accounts.id de quien lo registró',
+    fecha_utc         DATETIME NOT NULL COMMENT 'Cuándo se atendió y quedó pendiente',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_brb_pendientes_idem (idem_key),
+    KEY ix_brb_pendientes_barberia (barberia_id, estado, fecha_utc),
+    KEY ix_brb_pendientes_cliente (cliente_id, estado),
+    KEY ix_brb_pendientes_cobro (cobro_id),
+    CONSTRAINT fk_brb_pendientes_barberia FOREIGN KEY (barberia_id) REFERENCES brb_barberias (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS brb_pendiente_lineas (
+    id              INT NOT NULL AUTO_INCREMENT,
+    pendiente_id    INT NOT NULL,
+    servicio_id     INT NULL,
+    descripcion     VARCHAR(120) NOT NULL,
+    cantidad        SMALLINT NOT NULL DEFAULT 1,
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    total           DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_brb_pl_pendiente (pendiente_id),
+    CONSTRAINT fk_brb_pl_pendiente FOREIGN KEY (pendiente_id) REFERENCES brb_pendientes (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
